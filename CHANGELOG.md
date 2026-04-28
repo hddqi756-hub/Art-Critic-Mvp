@@ -131,3 +131,38 @@
 - `server/uploads/submissions.json` 只是开发阶段的临时存储，生产环境需要替换为数据库。
 - AI 批改和图片生成需要在 `server/.env` 中配置有效的 `OPENAI_API_KEY`。
 - Worker 是独立进程，需要和前端、后端服务一起启动。
+# v1.0.5 - 2026-04-28
+
+## v1.0.6 - 2026-04-28
+
+### 新增
+
+- 升级 AI 老师系统提示词：加入“第一眼画作定位 -> 分维度诊断 -> 隐性错误检查 -> 优点与下一步”的完整教师分析流程。
+- 分析结果新增 `strengths`、`style`、`can_demo`、`next_step_suggestion` 字段，用于正向反馈和下一步练习引导。
+- OpenAI Responses 调用启用 JSON 输出格式，并接入 `web_search` 工具；Chat Completions 调用启用 `response_format: { type: "json_object" }`。
+- 前端新增优点与下一步提示条，避免结果页只挑错。
+
+### 变更
+
+- 后端兼容新旧分析字段：`professional_explanation / beginner_explanation / knowledge_tag / suggestion / local_fixes.related_issue_id` 会映射进现有红线示范流程。
+- 系统仍只选取最重要的 3 个问题进入教学和红线示范，避免问题列表过载。
+
+## 新增
+
+- 新增“AI 绘画老师”数据结构：每次分析只保留 3 个主问题，每个问题包含白话原因、绘画知识点、视觉症状、3 步内修改步骤、bbox、editRegion、annotations、cropPrompt 和 practice。
+- 新增基于原图的局部红线示范：`POST /api/generate-selected` 现在生成真实局部裁剪图和老师红线 overlay，不再默认调用图片编辑模型。
+- 新增 annotation 渲染能力，支持 box、arrow、line、paint、text 数据，前端用 `react-konva` / SVG 进行定位展示。
+- 新增 Debug 面板，展示当前 task JSON、AI provider、analysis model、image model、edit model、图片 API 是否真实调用、是否 mock。
+
+## 变更
+
+- 批改流程调整为：上传作品 -> 找 3 个主问题 -> 定位批注 -> 局部红线示范 -> 用户确认后再进入真实修图。
+- 前端结果页全部中文化，状态栏改为学习流程文案，不再展示偏工程化的接口状态。
+- 前后对比改为局部 crop 对比滑块，默认展示“原局部 vs 老师红线示范”，不再用整图缩略图冒充局部细节。
+- `/api/analyze` prompt 改为老师批改 schema，明确要求 bbox 只用于定位，editRegion 用于裁剪/编辑。
+- `/api/generate-selected` 明确标记 `imageApiCalled: false`，UI 展示“当前为红线示范，未调用真实修图模型”。
+
+## 已知问题
+
+- 真实 inpaint 仍保留为二段动作，需要用户进入“真实修图”手动画 mask 后才会调用图片编辑模型。
+- 红线 overlay 目前由后端按 annotation 数据绘制，后续可继续增强为可拖拽、可编辑的教师批注层。

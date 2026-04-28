@@ -27,47 +27,29 @@ function Ensure-Dependencies($path) {
   }
 }
 
-function Start-Terminal($title, $path, $command) {
-  $quotedPath = $path.Replace("'", "''")
-  $quotedCommand = $command.Replace("'", "''")
-  $script = "Set-Location '$quotedPath'; `$Host.UI.RawUI.WindowTitle = '$title'; $quotedCommand"
-
-  Start-Process powershell.exe -ArgumentList @(
-    "-NoExit",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-Command",
-    $script
-  )
-}
-
 Ensure-Command "node" "Install Node.js first: https://nodejs.org/"
 Ensure-Command "npm" "npm should be installed with Node.js."
 
 if (-not (Test-Path $serverEnv)) {
   Write-Step "Creating server/.env from template"
   Copy-Item $serverEnvExample $serverEnv
-  Write-Host "Please edit server/.env and set OPENAI_API_KEY before using AI analysis." -ForegroundColor Yellow
+  Write-Host "Edit server/.env and set OPENAI_API_KEY when you want real AI analysis." -ForegroundColor Yellow
 }
 
 Ensure-Dependencies $root
 Ensure-Dependencies $server
 
-Write-Step "Checking Redis on localhost:6379"
-$redisReady = Test-NetConnection -ComputerName localhost -Port 6379 -InformationLevel Quiet
-if (-not $redisReady) {
-  Write-Host "Redis is not reachable on localhost:6379." -ForegroundColor Yellow
-  Write-Host "Start it with: docker run -d --name redis -p 6379:6379 redis"
-  Write-Host "The API can still start, but image-generation jobs need Redis."
-}
-
-Write-Step "Starting API server, image worker, and frontend"
-Start-Terminal "AI Art Tutor API" $server "npm run dev"
-Start-Terminal "AI Art Tutor Worker" $server "npm run worker"
-Start-Terminal "AI Art Tutor Frontend" $root "npm run dev"
-
-Write-Host ""
-Write-Host "Frontend: http://localhost:5173" -ForegroundColor Green
+Write-Step "Starting AI Art Tutor in this single window"
+Write-Host "Frontend:   http://localhost:5173" -ForegroundColor Green
 Write-Host "API health: http://localhost:4000/api/health" -ForegroundColor Green
 Write-Host ""
-Write-Host "Keep the three opened terminal windows running while developing."
+Write-Host "The browser will open automatically. Logs are prefixed with API and WEB." -ForegroundColor Yellow
+Write-Host "Press Ctrl+C to stop both." -ForegroundColor Yellow
+Write-Host ""
+
+Push-Location $root
+try {
+  npm run dev:all
+} finally {
+  Pop-Location
+}
