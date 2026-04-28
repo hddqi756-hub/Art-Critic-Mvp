@@ -16,6 +16,20 @@
 - `移除`：删除的功能、文件或依赖。
 - `已知问题`：当前还没处理、后续需要跟进的限制。
 
+## [v1.0.10] - 2026-04-28
+
+### 新增
+
+- 新增 `docs/AI_TEACHER_SYSTEM_V3.md`，定义 V3 第一阶段的分类体系、流程节点、接口规划和画室工作台布局。
+- 新增 `src/services/teacherApi.ts`，提供 `postKnowledgeCardGenerate` 与 `postPracticeGenerate` 的前端调用封装。
+- 新增老师记忆与资产追踪字段：`StudentMemory`、`GeneratedAsset`、`knowledgeCards`、`practiceSets`。
+
+### 变更
+
+- `src/App.tsx` 重构为“画室工作台”布局：顶部信息区、左侧画布区、右侧问题区、底部抽屉（知识卡/训练/历史）。
+- 批改问题结构扩展为 V3 字段：`dimension`、`subDimension`、`misconception`、`knowledgeCardPlan`、`practicePlan`、`imageEditPrompt`。
+- 新增“老师记得你上次也遇到过这个问题”的重复问题提示逻辑，并在生成后更新 memory 与 generatedAssets。
+
 ## [v1.0.9] - 2026-04-28
 
 ### 新增
