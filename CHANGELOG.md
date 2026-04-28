@@ -16,6 +16,31 @@
 - `移除`：删除的功能、文件或依赖。
 - `已知问题`：当前还没处理、后续需要跟进的限制。
 
+## [v1.0.4] - 2026-04-28
+
+### 新增
+
+- 新增局部示范真实裁剪链路：`generate-selected` 会根据选中问题的编辑区域生成 `beforeCropUrl`、`maskUrl`、`fullPreviewUrl` 和 mock `afterCropUrl`。
+- 新增 `editRegion` / `maskSuggestion`，将视觉定位用的 `bbox` 与真正用于局部编辑的区域分离。
+- 新增 mask 预览图和局部裁剪图，前端不再用整张图缩小显示来冒充局部对比。
+- 结果页重构为“老师批改工作台”：顶部状态栏、左侧画布工作区、右侧问题操作区、底部教学区。
+- 画布工作区新增四个 Tab：原图诊断、局部修正、前后对比、练习任务。
+- 问题卡片新增严重程度、影响部位、白话解释、专业术语、查看位置和“只修这个问题”操作。
+- 前后对比支持真实图片滑块；如果没有生成修改图，会明确提示先生成局部示范。
+
+### 变更
+
+- 任务状态扩展为更贴近产品流程的 `uploaded / analyzing / marked / waiting_selection / generating_local_demo / partial_done / done / failed`。
+- 前端任务恢复和轮询改为使用 `/api/task/:id`，同时保留 `/result/:taskId` 和 `localStorage` 恢复机制。
+- `generate-selected` 返回结构补充 `task_id` 和 `localDemos`，每个 local demo 包含局部图、mask、预览图、提示词和解释。
+- Mock 局部示范会明确标记为 `status: "mock"`，并在 UI 中提示“尚未接入真实图片编辑模型”。
+
+### 已知问题
+
+- `afterCropUrl` 当前仍是 mock 视觉示意图，不是真实 inpaint 结果。
+- 尚未接入 OpenAI image edit、OpenRouter 图片编辑模型、ComfyUI 或本地 inpaint workflow。
+- mask 目前由矩形 `editRegion` 自动生成，后续需要支持用户手动画笔 mask。
+
 ## [v1.0.3] - 2026-04-28
 
 ### 新增
