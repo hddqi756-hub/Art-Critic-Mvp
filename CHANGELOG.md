@@ -16,6 +16,16 @@
 - `移除`：删除的功能、文件或依赖。
 - `已知问题`：当前还没处理、后续需要跟进的限制。
 
+## [v1.0.12] - 2026-04-28
+
+### 变更
+
+- 移除前端 `mockIssues` 主流程，上传后优先调用 `/api/analyze` 获取真实 `ReviewTask`；仅在接口失败时进入 fallback。
+- `generate-selected` 改为严格单问题调用：`POST /api/generate-selected { task_id, problem_id }`。
+- 新增真实接口调用：`/api/generate-global-overlay`、`/api/inpaint-local`、`/api/inpaint-global`、知识卡与训练图的四个独立接口。
+- 新增 `ArtworkCanvas` 组件，真实渲染上传图片并叠加 annotations。
+- Debug 面板新增真实链路字段：mock 标记、activeIssueId、currentLocalDemo、globalDemo、imageApiCalled、qa score、生成 URL。
+
 ## [v1.0.11] - 2026-04-28
 
 ### 新增

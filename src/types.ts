@@ -24,14 +24,7 @@ export type SubjectType = '角色' | '场景' | '静物' | '综合'
 
 export type GeneratedAsset = {
   id: string
-  type:
-    | 'local_overlay'
-    | 'global_overlay'
-    | 'real_edit'
-    | 'knowledge_card'
-    | 'practice'
-    | 'practice_answer'
-    | 'report'
+  type: 'local_overlay' | 'global_overlay' | 'real_edit' | 'knowledge_card' | 'practice' | 'practice_answer' | 'report'
   title: string
   url: string
   createdAt: string
@@ -55,15 +48,7 @@ export type PracticePlan = {
 export type CritiqueIssue = {
   id: string
   title: string
-  dimension:
-    | '造型与结构'
-    | '线条与轮廓'
-    | '明暗与光影'
-    | '色彩'
-    | '构图与画面设计'
-    | '角色设计与美宣感'
-    | '上色完成度'
-    | 'AI图像编辑专项'
+  dimension: '造型与结构' | '线条与轮廓' | '明暗与光影' | '色彩' | '构图与画面设计' | '角色设计与美宣感' | '上色完成度' | 'AI图像编辑专项'
   subDimension: string
   severity: Severity
   bodyPart: string
@@ -116,13 +101,14 @@ export type LocalDemo = {
   id: string
   issueId: string
   mode: TeacherEditMode
-  status: 'ready' | 'needs_retry' | 'failed'
-  beforeCropUrl?: string
-  teacherOverlayUrl?: string
-  editedCropUrl?: string
+  status: 'ready' | 'needs_retry'
   beforeCropLabel: string
   afterLabel: string
   explanation: string
+  beforeCropUrl?: string
+  teacherOverlayUrl?: string
+  editedCropUrl?: string
+  maskUrl?: string
   imageApiCalled: boolean
   prompt: string
   mask?: EditMask
@@ -133,10 +119,10 @@ export type GlobalDemo = {
   id: string
   problemIds: string[]
   mode: TeacherEditMode
-  status: 'ready' | 'needs_retry' | 'failed'
-  beforeUrl?: string
+  status: 'ready' | 'needs_retry'
   globalOverlayUrl?: string
   editedFullUrl?: string
+  originalFullUrl?: string
   explanation: string
   prompt: string
   imageApiCalled: boolean
@@ -219,7 +205,9 @@ export type ReviewTask = {
   error?: string
   createdAt: string
   updatedAt: string
+  mockMode?: boolean
 }
+
 
 export type ApiResponse<T> = {
   success: boolean
