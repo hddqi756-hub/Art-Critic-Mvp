@@ -45,6 +45,17 @@ export type LocalDemo = {
   prompt: string
 }
 
+export type GlobalDemo = {
+  id: string
+  problemIds: string[]
+  globalOverlayUrl?: string
+  editedFullUrl?: string
+  explanation: string
+  prompt: string
+  imageApiCalled: boolean
+  mode: 'teacher_overlay' | 'real_edit'
+}
+
 export type AiMeta = {
   provider: string
   analysisModel: string
@@ -78,7 +89,9 @@ export type ReviewTask = {
   artworkType?: string
   problems: CritiqueIssue[]
   selectedProblemIds: string[]
+  activeIssueId?: string
   localDemos: LocalDemo[]
+  globalDemo?: GlobalDemo
   aiMeta: AiMeta
   logs: TaskLog[]
   error?: string

@@ -24,7 +24,7 @@ export const estimateEditCost = (size: ImageEditRequest['size'], quality: ImageE
 
 export const buildTeacherEditInstruction = (issue: CritiqueIssue) => {
   return [
-    `只修改与「${issue.title}」相关的区域，保持角色身份、线稿风格和原始构图不变。`,
+    `只修改与「${issue.title}」相关的区域，保持角色身份、人设、构图、姿态和线稿风格不变。`,
     `视觉症状：${issue.visual_symptom}`,
     `按照以下步骤调整：${issue.fix_steps.join('；')}。`,
     `绘画原理：${issue.art_principle}`,

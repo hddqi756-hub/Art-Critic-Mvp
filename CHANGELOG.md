@@ -16,6 +16,20 @@
 - `移除`：删除的功能、文件或依赖。
 - `已知问题`：当前还没处理、后续需要跟进的限制。
 
+## [v1.0.9] - 2026-04-28
+
+### 新增
+
+- 新增 `docs/AI_TEACHER_WORKFLOW_V2.md`，固化 activeIssueId 驱动、局部/全局示范分离、GPT-Image-2 风格 prompt 等硬规则。
+- 新增 `src/workflow/teacherWorkflow.ts`：`getActiveIssue`、`getLocalDemoForIssue`、`upsertLocalDemo`、`setActiveIssue`、`buildGlobalEditPrompt`。
+- 新增全局改图展示 Tab 与 `globalDemo` 数据流，用于三个问题综合总览。
+
+### 变更
+
+- 结果页改为 `activeIssueId` 单一驱动：点击问题只切换当前问题，局部展示区仅读取当前 issueId 对应 demo。
+- 局部红线示范改为“一次只生成一个问题”；全局总览独立按钮“生成三个问题的全局改图总览”。
+- `ReviewTask` 增加 `activeIssueId` 和 `globalDemo` 字段，局部与全局示范分开存储。
+
 ## [v1.0.8] - 2026-04-28
 
 ### 新增
