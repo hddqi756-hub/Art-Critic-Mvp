@@ -1,136 +1,52 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Arrow, Layer, Line, Rect, Stage, Text } from 'react-konva'
 import { createEditRequest, estimateEditCost, type EditMode } from './lib/imageEdit'
 import { postKnowledgeCardGenerate, postPracticeGenerate } from './services/teacherApi'
-import type {
-  Annotation,
-  CritiqueIssue,
-  GeneratedAsset,
-  GlobalDemo,
-  LocalDemo,
-  RectPercent,
-  ReviewTask,
-  Severity,
-} from './types'
-import { buildGlobalEditPrompt, getActiveIssue, getLocalDemoForIssue, setActiveIssue, upsertLocalDemo } from './workflow/teacherWorkflow'
+import type { Annotation, CritiqueIssue, EditQualityCheck, GeneratedAsset, GlobalDemo, LocalDemo, RectPercent, ReviewTask, Severity } from './types'
+import { buildGlobalEditPrompt, calcRectCoverage, getActiveIssue, getLocalDemoForIssue, overlap, setActiveIssue, upsertLocalDemo } from './workflow/teacherWorkflow'
 
 const stageWidth = 860
 const stageHeight = 560
-
 const severityColor: Record<Severity, string> = { 高: '#b91c1c', 中: '#b45309', 低: '#0369a1' }
 
 const mockIssues: CritiqueIssue[] = [
   {
-    id: 'issue-1',
-    title: '抬起左手的前臂透视偏短',
-    dimension: '造型与结构',
-    subDimension: '人体比例',
-    severity: '高',
-    bodyPart: '左手与前臂',
-    category: '人体结构',
-    misconception: '只看手掌大小，没有同时校验肩-肘-腕长度关系。',
-    student_friendly_reason: '左前臂长度比上臂短太多，动作会显得断裂。',
-    art_principle: '动态人物中，前臂缩短也要遵守透视比例。',
-    visual_symptom: '手肘到手腕过短，腕部方向和手掌不一致。',
-    fix_steps: ['先标肩肘腕三点', '延长前臂外轮廓 12%-18%', '统一腕与手掌朝向'],
-    bbox: { x: 58, y: 28, width: 20, height: 28 },
-    editRegion: { x: 50, y: 21, width: 30, height: 42 },
-    annotations: [{ id: 'ann-1', issueId: 'issue-1', type: 'box', color: 'red', rect: { x: 58, y: 28, width: 20, height: 28 }, label: '前臂过短' }],
-    cropPrompt: '叠加前臂延长红线与腕部方向线。',
-    practice: '肩肘腕速写 10 组。',
-    knowledgeCardPlan: {
-      title: '前臂透视为什么容易画短',
-      keyConcept: '肩肘腕比例 + 透视缩短',
-      commonMistake: '只纠结手掌大小',
-      observationMethod: '先看肘到腕距离再看掌长',
-      miniExercise: '三角动势线 20 组',
-    },
-    practicePlan: { title: '前臂比例专项', focus: '人体比例', steps: ['画肩肘腕点', '连动势线', '覆盖轮廓'] },
-    imageEditPrompt: '只修前臂比例，保持角色、人设、构图、姿态、画风不变。',
+    id: 'issue-1', title: '抬起左手的前臂透视偏短', dimension: '造型与结构', subDimension: '人体比例', severity: '高', bodyPart: '左手与前臂', category: '人体结构', misconception: '只看手掌大小', student_friendly_reason: '左前臂长度偏短。', art_principle: '前臂缩短也要遵守透视比例。', visual_symptom: '肘到腕过短。', fix_steps: ['先标肩肘腕', '延长前臂轮廓', '统一腕部方向'], bbox: { x: 58, y: 28, width: 20, height: 28 }, editRegion: { x: 50, y: 21, width: 30, height: 42 }, annotations: [{ id: 'ann-1', issueId: 'issue-1', type: 'box', color: 'red', rect: { x: 58, y: 28, width: 20, height: 28 } }], cropPrompt: '前臂延长红线', practice: '肩肘腕速写', knowledgeCardPlan: { title: '前臂透视', keyConcept: '比例', commonMistake: '忽略肘腕距离', observationMethod: '先看三点长度', miniExercise: '20组快写' }, practicePlan: { title: '前臂专项', focus: '结构', steps: ['标点', '连线', '上轮廓'] }, imageEditPrompt: '只修前臂比例。',
   },
   {
-    id: 'issue-2',
-    title: '头发和皮肤明度过近',
-    dimension: '明暗与光影',
-    subDimension: '明度分组',
-    severity: '中',
-    bodyPart: '脸部与头发',
-    category: '二分',
-    misconception: '只换色相，不拉开黑白关系。',
-    student_friendly_reason: '脸和头发灰度太像，主角脸部不够突出。',
-    art_principle: '焦点区域需要和相邻大形体拉开明度层级。',
-    visual_symptom: '转灰度后脸部边缘与头发边缘粘连。',
-    fix_steps: ['先做灰度检查', '提高脸部亮面组', '压低头发暗面组'],
-    bbox: { x: 28, y: 10, width: 28, height: 30 },
-    editRegion: { x: 22, y: 8, width: 36, height: 34 },
-    annotations: [{ id: 'ann-2', issueId: 'issue-2', type: 'line', color: 'green', points: [220, 120, 340, 140], label: '拉开明度' }],
-    cropPrompt: '叠加脸与头发明度分组示意线。',
-    practice: '同头像做 3 套明度分组。',
-    knowledgeCardPlan: {
-      title: '为什么肤色和头发要拉开明度',
-      keyConcept: '明度分组',
-      commonMistake: '只改色相不改黑白',
-      observationMethod: '灰度观察脸和头发是否可分离',
-      miniExercise: '3 套不同明度方案',
-    },
-    practicePlan: { title: '明度分组专项', focus: '二分', steps: ['转灰度', '标亮暗面', '回到彩色微调'] },
-    imageEditPrompt: '只修脸与头发的明度分组，保持角色与构图不变。',
+    id: 'issue-2', title: '头发和皮肤明度过近', dimension: '明暗与光影', subDimension: '明度分组', severity: '中', bodyPart: '脸部与头发', category: '二分', misconception: '只改色相', student_friendly_reason: '脸部焦点不突出。', art_principle: '焦点区要拉开明度组。', visual_symptom: '灰度下脸和发粘连。', fix_steps: ['灰度检查', '提亮脸部', '压低头发暗面'], bbox: { x: 28, y: 10, width: 28, height: 30 }, editRegion: { x: 22, y: 8, width: 36, height: 34 }, annotations: [{ id: 'ann-2', issueId: 'issue-2', type: 'line', color: 'green', points: [220, 120, 340, 140] }], cropPrompt: '明度分组示意', practice: '3套明度方案', knowledgeCardPlan: { title: '明度分组', keyConcept: '黑白关系', commonMistake: '不拉开明度', observationMethod: '转灰度观察', miniExercise: '3套方案' }, practicePlan: { title: '明度专项', focus: '二分', steps: ['转灰度', '分组', '回彩色'] }, imageEditPrompt: '只修脸发明度。',
   },
   {
-    id: 'issue-3',
-    title: '主体重心偏右，留白失衡',
-    dimension: '构图与画面设计',
-    subDimension: '视觉重心',
-    severity: '低',
-    bodyPart: '整体画面',
-    category: '构图',
-    misconception: '关注局部细节，忽略整体重心线。',
-    student_friendly_reason: '人物体积挤在右边，画面会有“要倒”的感觉。',
-    art_principle: '人物构图需平衡视觉重量和留白节奏。',
-    visual_symptom: '中轴线偏右，左侧负形过空。',
-    fix_steps: ['画中轴线', '微调肩胯位置', '补左侧轻量呼应'],
-    bbox: { x: 14, y: 14, width: 68, height: 72 },
-    editRegion: { x: 8, y: 8, width: 80, height: 84 },
-    annotations: [{ id: 'ann-3', issueId: 'issue-3', type: 'line', color: 'blue', points: [430, 20, 430, 540] }],
-    cropPrompt: '叠加构图中轴线与重心线。',
-    practice: '6 张不同留白构图小稿。',
-    knowledgeCardPlan: {
-      title: '重心线为什么决定画面稳定感',
-      keyConcept: '视觉重心',
-      commonMistake: '人物越画越偏但不自知',
-      observationMethod: '先看中轴再看负形面积',
-      miniExercise: '同角色做 6 张构图缩略图',
-    },
-    practicePlan: { title: '构图稳定性专项', focus: '构图', steps: ['先画中轴', '排主次形体', '再加细节'] },
-    imageEditPrompt: '只修构图重心，保持角色造型和画风不变。',
+    id: 'issue-3', title: '主体重心偏右', dimension: '构图与画面设计', subDimension: '视觉重心', severity: '低', bodyPart: '整体画面', category: '构图', misconception: '忽略中轴', student_friendly_reason: '画面重心偏移。', art_principle: '留白要平衡。', visual_symptom: '中轴偏右。', fix_steps: ['画中轴', '微调主体', '补左侧呼应'], bbox: { x: 14, y: 14, width: 68, height: 72 }, editRegion: { x: 8, y: 8, width: 80, height: 84 }, annotations: [{ id: 'ann-3', issueId: 'issue-3', type: 'line', color: 'blue', points: [430, 20, 430, 540] }], cropPrompt: '构图中轴线', practice: '6张构图稿', knowledgeCardPlan: { title: '重心线', keyConcept: '视觉稳定', commonMistake: '越画越偏', observationMethod: '看中轴和负形', miniExercise: '6张缩略图' }, practicePlan: { title: '构图专项', focus: '构图', steps: ['先中轴', '排体积', '补细节'] }, imageEditPrompt: '只修重心。',
   },
 ]
 
-const toPxRect = (rect: RectPercent) => ({
-  x: (rect.x / 100) * stageWidth,
-  y: (rect.y / 100) * stageHeight,
-  width: (rect.width / 100) * stageWidth,
-  height: (rect.height / 100) * stageHeight,
+const makeAsset = (type: GeneratedAsset['type'], title: string): GeneratedAsset => ({ id: `${type}-${Date.now()}`, type, title, url: 'mock://asset', createdAt: new Date().toISOString(), downloadable: true })
+
+const buildQa = (score: number, reasons: string[] = []): EditQualityCheck => ({
+  identityPreserved: score >= 80,
+  posePreserved: score >= 80,
+  outfitPreserved: score >= 80,
+  stylePreserved: score >= 80,
+  editRegionRespected: score >= 80,
+  protectedRegionsRespected: score >= 80,
+  issueImproved: score >= 70,
+  overEdited: score < 80,
+  artifactFound: score < 75,
+  score,
+  failureReasons: reasons,
+  retryPrompt: '缩小mask并加强“保持角色与画风不变”约束后重试。',
 })
 
-const makeAsset = (type: GeneratedAsset['type'], title: string): GeneratedAsset => ({
-  id: `${type}-${Date.now()}`,
-  type,
-  title,
-  url: 'mock://asset-preview',
-  createdAt: new Date().toISOString(),
-  downloadable: true,
-})
-
-const makeInitialTask = (imageUrl: string): ReviewTask => ({
+const makeTask = (imageUrl: string): ReviewTask => ({
   id: `task-${Date.now()}`,
   status: 'waiting_selection',
   imageUrl,
   artworkStage: '二分',
-  styleTarget: '日系赛璐璐',
+  styleTarget: '平涂',
   subjectType: '角色',
-  studentGoal: '提升二分与结构稳定性',
-  priorityStrategy: '三问题分属不同子类优先',
+  studentGoal: '稳定局部修改',
+  priorityStrategy: '不同子类优先',
   problems: mockIssues,
   selectedProblemIds: [],
   activeIssueId: mockIssues[0].id,
@@ -159,27 +75,23 @@ const makeInitialTask = (imageUrl: string): ReviewTask => ({
   updatedAt: new Date().toISOString(),
 })
 
+const toPxRect = (rect: RectPercent) => ({ x: (rect.x / 100) * stageWidth, y: (rect.y / 100) * stageHeight, width: (rect.width / 100) * stageWidth, height: (rect.height / 100) * stageHeight })
+
 function App() {
   const [task, setTask] = useState<ReviewTask | null>(null)
-  const [activeCanvasTab, setActiveCanvasTab] = useState<'local' | 'global'>('local')
-  const [drawerTab, setDrawerTab] = useState<'knowledge' | 'practice' | 'history'>('knowledge')
-  const [showDebug, setShowDebug] = useState(false)
-  const [editMode, setEditMode] = useState<EditMode>('auto_protect')
+  const [editMode, setEditMode] = useState<EditMode>('mask_precise')
   const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('medium')
+  const [tab, setTab] = useState<'local' | 'global'>('local')
 
-  const activeIssue = task ? getActiveIssue(task.problems, task.activeIssueId ?? null) : undefined
-  const currentLocalDemo = task ? getLocalDemoForIssue(task.localDemos, task.activeIssueId ?? null) : undefined
-  const recurringHint = useMemo(() => {
-    if (!task || !activeIssue) return null
-    return task.studentMemory.recurringIssues.includes(activeIssue.subDimension) ? `老师记得你上次也在「${activeIssue.subDimension}」卡住。` : null
-  }, [task, activeIssue])
+  const activeIssue = task ? getActiveIssue(task) : undefined
+  const currentDemo = task && activeIssue ? getLocalDemoForIssue(task, activeIssue.id) : undefined
+  const recurringHint = task && activeIssue && task.studentMemory.recurringIssues.includes(activeIssue.subDimension) ? '老师记得你上次也遇到过这个问题。' : ''
+  const request = task && activeIssue ? createEditRequest(task.imageUrl, activeIssue, { editMode, quality, teacherMode: 'local_inpaint' }) : null
 
-  const editRequest = task && activeIssue ? createEditRequest(task.imageUrl, activeIssue, { editMode, quality }) : null
-
-  const onUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  const onUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
     if (!file) return
-    setTask(makeInitialTask(URL.createObjectURL(file)))
+    setTask(makeTask(URL.createObjectURL(file)))
   }
 
   const onSelectIssue = (issueId: string) => {
@@ -187,200 +99,98 @@ function App() {
     setTask({ ...task, activeIssueId: setActiveIssue(task.activeIssueId ?? null, issueId), updatedAt: new Date().toISOString() })
   }
 
-  const generateLocalDemo = () => {
+  const generateOverlay = () => {
     if (!task || !activeIssue) return
-    const localDemo: LocalDemo = {
-      id: `local-${activeIssue.id}-${task.localDemos.length + 1}`,
+    const demo: LocalDemo = { id: `ov-${activeIssue.id}-${task.localDemos.length + 1}`, issueId: activeIssue.id, mode: 'teacher_overlay', status: 'ready', beforeCropLabel: '原局部', afterLabel: '老师红线示范', explanation: '默认模式：只做老师批注，不调用真实图片编辑模型。', imageApiCalled: false, prompt: activeIssue.cropPrompt, mask: { id: `mask-${activeIssue.id}`, issueId: activeIssue.id, rect: activeIssue.editRegion, coveragePercent: calcRectCoverage(activeIssue.editRegion) } }
+    setTask({ ...task, localDemos: upsertLocalDemo(task.localDemos, demo), studentMemory: { ...task.studentMemory, generatedAssets: [...task.studentMemory.generatedAssets, makeAsset('local_overlay', `${activeIssue.title}_红线`)] }, updatedAt: new Date().toISOString() })
+  }
+
+  const generateLocalInpaint = () => {
+    if (!task || !activeIssue) return
+    const coverage = calcRectCoverage(activeIssue.editRegion)
+    if (coverage > 20) {
+      alert('mask 超过作品面积 20%，请缩小选区后再尝试局部真实修图。')
+      return
+    }
+
+    const protectedRegions = task.artworkBounds
+    const protectedTouched = overlap(activeIssue.editRegion, protectedRegions.faceRegion) || overlap(activeIssue.editRegion, protectedRegions.textRegion) || overlap(activeIssue.editRegion, protectedRegions.colorCardRegion)
+    const qa = protectedTouched ? buildQa(72, ['触达了保护区域，存在过度修改风险']) : buildQa(88)
+
+    const demo: LocalDemo = {
+      id: `inpaint-${activeIssue.id}-${task.localDemos.length + 1}`,
       issueId: activeIssue.id,
-      status: 'teacher_overlay',
+      mode: 'local_inpaint',
+      status: qa.score < 80 ? 'needs_retry' : 'ready',
       beforeCropLabel: '原局部',
-      afterLabel: '老师红线示范',
-      explanation: `${activeIssue.student_friendly_reason}。${activeIssue.misconception}`,
-      imageApiCalled: false,
-      prompt: activeIssue.cropPrompt,
+      afterLabel: qa.score < 80 ? '局部真实修图（需重试）' : '局部真实修图',
+      explanation: qa.score < 80 ? '本次真实修图过度修改了原图，已标记为需要重试。' : '通过 QA，可作为局部修图参考。',
+      imageApiCalled: true,
+      prompt: activeIssue.imageEditPrompt,
+      mask: { id: `mask-${activeIssue.id}`, issueId: activeIssue.id, rect: activeIssue.editRegion, coveragePercent: coverage },
+      qa,
     }
 
-    const generatedAssets = [
-      ...task.studentMemory.generatedAssets,
-      makeAsset('local_overlay', `${activeIssue.title}_局部红线`),
-    ]
-
-    setTask({
-      ...task,
-      status: 'partial_done',
-      localDemos: upsertLocalDemo(task.localDemos, localDemo),
-      selectedProblemIds: [activeIssue.id],
-      studentMemory: {
-        ...task.studentMemory,
-        generatedAssets,
-        recurringIssues: Array.from(new Set([...task.studentMemory.recurringIssues, activeIssue.subDimension])),
-      },
-      updatedAt: new Date().toISOString(),
-    })
+    setTask({ ...task, localDemos: upsertLocalDemo(task.localDemos, demo), studentMemory: { ...task.studentMemory, generatedAssets: [...task.studentMemory.generatedAssets, makeAsset('real_edit', `${activeIssue.title}_局部真实修图`)] }, updatedAt: new Date().toISOString() })
   }
 
-  const generateGlobalDemo = () => {
+  const generateGlobalInpaint = () => {
     if (!task) return
-    const globalDemo: GlobalDemo = {
-      id: `global-${task.id}`,
-      problemIds: task.problems.map((item) => item.id),
-      explanation: '三个问题综合总览（老师批注，不调用真实修图模型）。',
+    const qa = buildQa(76, ['全局修图改变了风格细节，建议先使用全局红线总览再重试'])
+    const demo: GlobalDemo = {
+      id: `global-${task.studentMemory.generatedAssets.length + 1}`,
+      problemIds: task.problems.map((p) => p.id),
+      mode: 'global_guided_edit',
+      status: qa.score < 80 ? 'needs_retry' : 'ready',
+      explanation: qa.score < 80 ? '全局真实修图 QA 未通过，已标记需要重试。' : '全局真实修图通过 QA。',
       prompt: buildGlobalEditPrompt(task.problems),
+      imageApiCalled: true,
       globalOverlayUrl: 'mock://global-overlay',
-      editedFullUrl: 'mock://global-edit-preview',
-      imageApiCalled: false,
-      mode: 'teacher_overlay',
+      editedFullUrl: 'mock://global-edit',
+      qa,
     }
-
-    setTask({
-      ...task,
-      globalDemo,
-      studentMemory: {
-        ...task.studentMemory,
-        generatedAssets: [...task.studentMemory.generatedAssets, makeAsset('global_overlay', '三个问题全局总览')],
-      },
-      updatedAt: new Date().toISOString(),
-    })
-    setActiveCanvasTab('global')
+    setTask({ ...task, globalDemo: demo, studentMemory: { ...task.studentMemory, generatedAssets: [...task.studentMemory.generatedAssets, makeAsset('real_edit', '三个问题_全局真实修图')] }, updatedAt: new Date().toISOString() })
+    setTab('global')
   }
 
-  const generateKnowledgeCard = async () => {
+  const genCard = async () => {
     if (!task || !activeIssue) return
     const card = await postKnowledgeCardGenerate(task, activeIssue.id)
-    setTask({
-      ...task,
-      knowledgeCards: [...task.knowledgeCards.filter((item) => item.issueId !== card.issueId), card],
-      studentMemory: {
-        ...task.studentMemory,
-        learnedConcepts: Array.from(new Set([...task.studentMemory.learnedConcepts, card.concept])),
-        generatedAssets: [...task.studentMemory.generatedAssets, makeAsset('knowledge_card', `${card.title}_文字卡`)],
-      },
-      updatedAt: new Date().toISOString(),
-    })
+    setTask({ ...task, knowledgeCards: [...task.knowledgeCards.filter((k) => k.issueId !== activeIssue.id), card], updatedAt: new Date().toISOString() })
   }
 
-  const generatePractice = async () => {
+  const genPractice = async () => {
     if (!task || !activeIssue) return
     const set = await postPracticeGenerate(task, activeIssue.id)
-    setTask({
-      ...task,
-      practiceSets: [...task.practiceSets.filter((item) => item.issueId !== set.issueId), set],
-      studentMemory: {
-        ...task.studentMemory,
-        generatedAssets: [
-          ...task.studentMemory.generatedAssets,
-          makeAsset('practice', `${set.title}_训练图`),
-          makeAsset('practice_answer', `${set.title}_参考答案`),
-        ],
-      },
-      updatedAt: new Date().toISOString(),
-    })
+    setTask({ ...task, practiceSets: [...task.practiceSets.filter((p) => p.issueId !== activeIssue.id), set], updatedAt: new Date().toISOString() })
   }
 
   const stageAnnotations: Annotation[] = activeIssue ? activeIssue.annotations : []
-  const activeKnowledge = task && activeIssue ? task.knowledgeCards.find((item) => item.issueId === activeIssue.id) : undefined
-  const activePractice = task && activeIssue ? task.practiceSets.find((item) => item.issueId === activeIssue.id) : undefined
+  const activeCard = task && activeIssue ? task.knowledgeCards.find((k) => k.issueId === activeIssue.id) : undefined
+  const activePractice = task && activeIssue ? task.practiceSets.find((p) => p.issueId === activeIssue.id) : undefined
 
   return (
     <main className="studioPage">
-      <header className="topBar">
-        <div>
-          <h1>AI 老师画室工作台 V3</h1>
-          <p>{task ? `${task.artworkStage} / ${task.styleTarget} / 训练目标：${task.studentGoal}` : '上传作品后开始诊断'}</p>
-        </div>
-        <div className="memoryCapsule">{task?.studentMemory.teacherSummary ?? '老师记忆将显示在这里'}</div>
-        <button className="exportBtn">导出本次报告</button>
-      </header>
-
+      <header className="topBar"><div><h1>AI 老师画室工作台（稳定性优先）</h1><p>默认模式：老师红线示范。真实修图请谨慎使用。</p></div></header>
       <section className="upload"><label htmlFor="file">上传作品</label><input id="file" type="file" accept="image/*" onChange={onUpload} /></section>
-
       {task ? (
         <>
           <section className="mainLayout">
             <section className="leftCanvas">
-              <div className="tabRow">
-                <button className={activeCanvasTab === 'local' ? 'tab activeTab' : 'tab'} onClick={() => setActiveCanvasTab('local')}>局部红线</button>
-                <button className={activeCanvasTab === 'global' ? 'tab activeTab' : 'tab'} onClick={() => setActiveCanvasTab('global')}>全局改图</button>
-              </div>
-              <Stage width={stageWidth} height={stageHeight}>
-                <Layer><Rect x={0} y={0} width={stageWidth} height={stageHeight} fill="#fcfaf7" /></Layer>
-                <Layer>
-                  {activeCanvasTab === 'local' && stageAnnotations.map((item) => {
-                    if (item.type === 'box' && item.rect) {
-                      const rect = toPxRect(item.rect)
-                      return <Rect key={item.id} x={rect.x} y={rect.y} width={rect.width} height={rect.height} stroke={item.color ?? 'red'} strokeWidth={3} />
-                    }
-                    if (item.type === 'line' && item.points) return <Line key={item.id} points={item.points} stroke={item.color ?? 'red'} strokeWidth={3} />
-                    if (item.type === 'arrow' && item.points) return <Arrow key={item.id} points={item.points} stroke={item.color ?? 'red'} fill={item.color ?? 'red'} strokeWidth={3} />
-                    return null
-                  })}
-                  {activeCanvasTab === 'global' ? <Text x={20} y={20} text="全局总览：原图 vs 全局红线 / 全局修图" fill="#334155" /> : null}
-                </Layer>
-              </Stage>
-
-              {activeCanvasTab === 'local' ? (
-                <>
-                  {currentLocalDemo ? <p>{currentLocalDemo.explanation}</p> : <p>请先为这个问题生成红线示范。</p>}
-                  <button className="primary" onClick={generateLocalDemo}>看红线示范（仅当前问题）</button>
-                </>
-              ) : (
-                <>
-                  <div className="sliderStub"><div>原图</div><div>{task.globalDemo ? 'globalOverlayUrl / editedFullUrl' : '等待生成'}</div></div>
-                  <button className="primary" onClick={generateGlobalDemo}>生成三个问题的全局改图总览</button>
-                </>
-              )}
-
-              <div className="editPanel">
-                <h3>真实修图请求预览</h3>
-                <div className="controls">
-                  <label>模式<select value={editMode} onChange={(e) => setEditMode(e.target.value as EditMode)}><option value="auto_protect">自动保护</option><option value="mask_precise">Mask 精修</option></select></label>
-                  <label>质量<select value={quality} onChange={(e) => setQuality(e.target.value as 'low' | 'medium' | 'high')}><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select></label>
-                </div>
-                <p>预算参考：${estimateEditCost('1024x1024', quality).toFixed(2)}</p>
-                {editRequest ? <pre>{JSON.stringify(editRequest, null, 2)}</pre> : null}
-              </div>
+              <div className="tabRow"><button className={tab === 'local' ? 'tab activeTab' : 'tab'} onClick={() => setTab('local')}>局部模式</button><button className={tab === 'global' ? 'tab activeTab' : 'tab'} onClick={() => setTab('global')}>全局模式</button></div>
+              <Stage width={stageWidth} height={stageHeight}><Layer><Rect x={0} y={0} width={stageWidth} height={stageHeight} fill="#fcfaf7" /></Layer><Layer>{tab === 'local' && stageAnnotations.map((a) => { if (a.type === 'box' && a.rect) { const r = toPxRect(a.rect); return <Rect key={a.id} x={r.x} y={r.y} width={r.width} height={r.height} stroke="red" /> } if (a.type === 'line' && a.points) return <Line key={a.id} points={a.points} stroke="red" />; if (a.type === 'arrow' && a.points) return <Arrow key={a.id} points={a.points} fill="red" stroke="red" />; return null })}{tab === 'global' ? <Text x={16} y={16} text="先看全局红线总览，再决定是否全局真实修图" fill="#334155" /> : null}</Layer></Stage>
+              {tab === 'local' ? <p>{currentDemo ? currentDemo.explanation : '请先为这个问题生成红线示范。'}</p> : <p>{task.globalDemo?.explanation ?? '还没有全局示范结果。'}</p>}
+              <div className="controls"><button className="primary" onClick={generateOverlay}>看红线示范（默认）</button><button className="primary" onClick={generateLocalInpaint}>生成局部真实修图</button><button className="primary" onClick={generateGlobalInpaint}>生成全局真实修图</button></div>
+              <p className="memoryHint">真实修图可能改变画风，建议先看红线示范；QA低于80将自动标记“需要重试”。</p>
+              <div className="editPanel"><label>模式<select value={editMode} onChange={(e) => setEditMode(e.target.value as EditMode)}><option value="mask_precise">mask_precise</option><option value="auto_protect">auto_protect</option></select></label><label>质量<select value={quality} onChange={(e) => setQuality(e.target.value as 'low'|'medium'|'high')}><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select></label><p>预算：${estimateEditCost('1024x1024', quality).toFixed(2)}</p>{request ? <pre>{JSON.stringify(request, null, 2)}</pre> : null}</div>
             </section>
-
             <aside className="rightIssues">
-              <h2>老师挑出的 3 个主问题</h2>
-              {task.problems.map((issue) => (
-                <button key={issue.id} className={task.activeIssueId === issue.id ? 'issue active' : 'issue'} onClick={() => onSelectIssue(issue.id)}>
-                  <div className="issueTitle">{issue.title}</div>
-                  <div className="meta"><span style={{ color: severityColor[issue.severity] }}>严重度：{issue.severity}</span><span>{issue.dimension} / {issue.subDimension}</span></div>
-                </button>
-              ))}
+              <h2>3个主问题</h2>
+              {task.problems.map((issue) => <button key={issue.id} className={task.activeIssueId===issue.id?'issue active':'issue'} onClick={() => onSelectIssue(issue.id)}><div className="issueTitle">{issue.title}</div><div className="meta"><span style={{color: severityColor[issue.severity]}}>{issue.severity}</span><span>{issue.subDimension}</span></div></button>)}
               {recurringHint ? <p className="memoryHint">{recurringHint}</p> : null}
             </aside>
           </section>
-
-          <section className="drawer">
-            <div className="tabRow">
-              <button className={drawerTab === 'knowledge' ? 'tab activeTab' : 'tab'} onClick={() => setDrawerTab('knowledge')}>知识卡片</button>
-              <button className={drawerTab === 'practice' ? 'tab activeTab' : 'tab'} onClick={() => setDrawerTab('practice')}>基础训练</button>
-              <button className={drawerTab === 'history' ? 'tab activeTab' : 'tab'} onClick={() => setDrawerTab('history')}>历史痕迹</button>
-            </div>
-            {drawerTab === 'knowledge' ? (
-              <div>
-                <button className="primary" onClick={generateKnowledgeCard}>生成文字知识卡</button>
-                {activeKnowledge ? <pre>{JSON.stringify(activeKnowledge, null, 2)}</pre> : <p>当前问题还没有知识卡。</p>}
-              </div>
-            ) : null}
-            {drawerTab === 'practice' ? (
-              <div>
-                <button className="primary" onClick={generatePractice}>生成训练图与参考答案</button>
-                {activePractice ? <pre>{JSON.stringify(activePractice, null, 2)}</pre> : <p>当前问题还没有训练集。</p>}
-              </div>
-            ) : null}
-            {drawerTab === 'history' ? (
-              <ul>
-                {task.studentMemory.generatedAssets.map((asset) => (
-                  <li key={asset.id}>{asset.title}（{asset.createdAt.slice(0, 10)}）<a href={asset.url} download>下载</a></li>
-                ))}
-              </ul>
-            ) : null}
-          </section>
-
-          <section className="debug"><button onClick={() => setShowDebug((prev) => !prev)}>{showDebug ? '收起' : '展开'} Debug</button>{showDebug ? <pre>{JSON.stringify(task, null, 2)}</pre> : null}</section>
+          <section className="drawer"><div className="tabRow"><button className="tab" onClick={genCard}>生成文字知识卡</button><button className="tab" onClick={genPractice}>生成训练图与答案</button></div>{activeCard ? <pre>{JSON.stringify(activeCard, null, 2)}</pre> : null}{activePractice ? <pre>{JSON.stringify(activePractice, null, 2)}</pre> : null}<ul>{task.studentMemory.generatedAssets.map((asset) => <li key={asset.id}>{asset.title}<a href={asset.url} download>下载</a></li>)}</ul></section>
         </>
       ) : null}
     </main>

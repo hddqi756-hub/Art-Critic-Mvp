@@ -16,6 +16,34 @@ export type Annotation = {
 }
 
 export type Severity = '高' | '中' | '低'
+export type TeacherEditMode = 'teacher_overlay' | 'local_inpaint' | 'global_guided_edit'
+
+export type ArtworkStage = '草稿' | '线稿' | '平涂' | '二分' | '半成品' | '完成图'
+export type StyleTarget = '日系赛璐璐' | '平涂' | '半厚涂' | '厚涂' | '游戏美宣' | 'Q版' | '写实'
+export type SubjectType = '角色' | '场景' | '静物' | '综合'
+
+export type GeneratedAsset = {
+  id: string
+  type: 'local_overlay' | 'global_overlay' | 'real_edit' | 'knowledge_card' | 'practice' | 'practice_answer' | 'report'
+  title: string
+  url: string
+  createdAt: string
+  downloadable: boolean
+}
+
+export type KnowledgeCardPlan = {
+  title: string
+  keyConcept: string
+  commonMistake: string
+  observationMethod: string
+  miniExercise: string
+}
+
+export type PracticePlan = {
+  title: string
+  focus: string
+  steps: string[]
+}
 
 export type ArtworkStage = '草稿' | '线稿' | '平涂' | '二分' | '半成品' | '完成图'
 export type StyleTarget = '日系赛璐璐' | '平涂' | '半厚涂' | '厚涂' | '游戏美宣' | 'Q版' | '写实'
@@ -67,15 +95,88 @@ export type CritiqueIssue = {
   imageEditPrompt: string
 }
 
+export type ArtworkBounds = {
+  faceRegion: RectPercent
+  textRegion: RectPercent
+  colorCardRegion: RectPercent
+  backgroundWhitespaceRegion: RectPercent
+}
+
+export type EditMask = {
+  id: string
+  issueId?: string
+  rect: RectPercent
+  coveragePercent: number
+}
+
+export type EditQualityCheck = {
+  identityPreserved: boolean
+  posePreserved: boolean
+  outfitPreserved: boolean
+  stylePreserved: boolean
+  editRegionRespected: boolean
+  protectedRegionsRespected: boolean
+  issueImproved: boolean
+  overEdited: boolean
+  artifactFound: boolean
+  score: number
+  failureReasons: string[]
+  retryPrompt: string
+}
+
 export type LocalDemo = {
   id: string
   issueId: string
-  status: 'teacher_overlay' | 'mock' | 'real_inpaint'
+  mode: TeacherEditMode
+  status: 'ready' | 'needs_retry'
   beforeCropLabel: string
   afterLabel: string
   explanation: string
   imageApiCalled: boolean
   prompt: string
+  mask?: EditMask
+  qa?: EditQualityCheck
+}
+
+export type GlobalDemo = {
+  id: string
+  problemIds: string[]
+  mode: TeacherEditMode
+  status: 'ready' | 'needs_retry'
+  globalOverlayUrl?: string
+  editedFullUrl?: string
+  explanation: string
+  prompt: string
+  imageApiCalled: boolean
+  qa?: EditQualityCheck
+}
+
+export type KnowledgeCard = {
+  id: string
+  issueId: string
+  mode: 'text' | 'image'
+  title: string
+  concept: string
+  misconception: string
+  observe: string
+  exercise: string
+  imageUrl?: string
+}
+
+export type PracticeSet = {
+  id: string
+  issueId: string
+  title: string
+  steps: string[]
+  trainingImageUrl?: string
+  answerImageUrl?: string
+}
+
+export type StudentMemory = {
+  recurringIssues: string[]
+  learnedConcepts: string[]
+  generatedAssets: GeneratedAsset[]
+  teacherSummary: string
 }
 
 export type GlobalDemo = {
@@ -156,6 +257,7 @@ export type ReviewTask = {
   activeIssueId?: string
   localDemos: LocalDemo[]
   globalDemo?: GlobalDemo
+  artworkBounds: ArtworkBounds
   knowledgeCards: KnowledgeCard[]
   practiceSets: PracticeSet[]
   studentMemory: StudentMemory
