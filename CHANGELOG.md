@@ -16,6 +16,66 @@
 - `移除`：删除的功能、文件或依赖。
 - `已知问题`：当前还没处理、后续需要跟进的限制。
 
+## [v1.0.10] - 2026-04-28
+
+### 新增
+
+- 新增 `docs/AI_TEACHER_SYSTEM_V3.md`，定义 V3 第一阶段的分类体系、流程节点、接口规划和画室工作台布局。
+- 新增 `src/services/teacherApi.ts`，提供 `postKnowledgeCardGenerate` 与 `postPracticeGenerate` 的前端调用封装。
+- 新增老师记忆与资产追踪字段：`StudentMemory`、`GeneratedAsset`、`knowledgeCards`、`practiceSets`。
+
+### 变更
+
+- `src/App.tsx` 重构为“画室工作台”布局：顶部信息区、左侧画布区、右侧问题区、底部抽屉（知识卡/训练/历史）。
+- 批改问题结构扩展为 V3 字段：`dimension`、`subDimension`、`misconception`、`knowledgeCardPlan`、`practicePlan`、`imageEditPrompt`。
+- 新增“老师记得你上次也遇到过这个问题”的重复问题提示逻辑，并在生成后更新 memory 与 generatedAssets。
+
+## [v1.0.9] - 2026-04-28
+
+### 新增
+
+- 新增 `docs/AI_TEACHER_WORKFLOW_V2.md`，固化 activeIssueId 驱动、局部/全局示范分离、GPT-Image-2 风格 prompt 等硬规则。
+- 新增 `src/workflow/teacherWorkflow.ts`：`getActiveIssue`、`getLocalDemoForIssue`、`upsertLocalDemo`、`setActiveIssue`、`buildGlobalEditPrompt`。
+- 新增全局改图展示 Tab 与 `globalDemo` 数据流，用于三个问题综合总览。
+
+### 变更
+
+- 结果页改为 `activeIssueId` 单一驱动：点击问题只切换当前问题，局部展示区仅读取当前 issueId 对应 demo。
+- 局部红线示范改为“一次只生成一个问题”；全局总览独立按钮“生成三个问题的全局改图总览”。
+- `ReviewTask` 增加 `activeIssueId` 和 `globalDemo` 字段，局部与全局示范分开存储。
+
+## [v1.0.8] - 2026-04-28
+
+### 新增
+
+- 新增 `src/lib/imageEdit.ts`，封装 GPT-Image-2 教学修图请求结构、提示词构造和预算估算能力。
+- 新增“真实修图调用准备”面板，支持选择编辑模式（自动保护 / Mask 精修）、质量、尺寸，并实时展示请求 JSON。
+- 新增“生成修图结果（占位）”入口，用于串联“红线示范 -> 用户确认 -> 真实修图调用”的闭环。
+
+### 变更
+
+- 调整 `src/App.tsx`，将 issue 数据直接映射为可执行的 edit prompt，确保诊断结果可落到 image edit 请求。
+- 增强页面样式，补充修图参数区与表单控件布局。
+
+## [v1.0.7] - 2026-04-28
+
+### 新增
+
+- 新增最小可运行的 Vite + React 前端工作台：上传作品后只输出 3 个主问题，并进入“AI 绘画老师”学习流程。
+- 新增 `src/App.tsx` 工作流页面，包含学习状态文案、问题列表、局部红线示范触发、教学区和局部对比区。
+- 新增 `react-konva` 标注渲染：支持 box、line、arrow、text 四类 annotation 的可视化展示。
+- 新增 Debug 面板：显示完整 task JSON 以及 provider/model/mock/imageApiCalled 等调试字段。
+- 新增全中文界面文案，明确提示“当前为红线示范，未调用真实修图模型”。
+
+### 变更
+
+- `src/types.ts` 的 `Annotation` 数据结构新增 `issueId`，用于问题与标注的一对多关联。
+- 前后对比区默认围绕 `editRegion` 展示局部流程，不再以整图缩略图表达局部修正。
+
+### 修复
+
+- 补齐 `src/main.tsx` 和页面样式文件，修复 `npm run build` 因缺少入口而失败的问题。
+
 ## [v1.0.4] - 2026-04-28
 
 ### 新增
