@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Arrow, Layer, Line, Rect, Stage, Text } from 'react-konva'
+import { createEditRequest, estimateEditCost, type EditMode } from './lib/imageEdit'
 import type {
   Annotation,
   CritiqueIssue,
@@ -43,29 +44,9 @@ const mockIssues: CritiqueIssue[] = [
     bbox: { x: 58, y: 28, width: 20, height: 28 },
     editRegion: { x: 50, y: 21, width: 30, height: 42 },
     annotations: [
-      {
-        id: 'ann-1',
-        issueId: 'issue-1',
-        type: 'box',
-        color: 'red',
-        rect: { x: 58, y: 28, width: 20, height: 28 },
-        label: '前臂过短',
-      },
-      {
-        id: 'ann-2',
-        issueId: 'issue-1',
-        type: 'arrow',
-        color: 'red',
-        points: [640, 190, 700, 160],
-      },
-      {
-        id: 'ann-3',
-        issueId: 'issue-1',
-        type: 'line',
-        color: 'blue',
-        points: [560, 150, 700, 160],
-        label: '建议前臂轴线',
-      },
+      { id: 'ann-1', issueId: 'issue-1', type: 'box', color: 'red', rect: { x: 58, y: 28, width: 20, height: 28 }, label: '前臂过短' },
+      { id: 'ann-2', issueId: 'issue-1', type: 'arrow', color: 'red', points: [640, 190, 700, 160] },
+      { id: 'ann-3', issueId: 'issue-1', type: 'line', color: 'blue', points: [560, 150, 700, 160], label: '建议前臂轴线' },
     ],
     cropPrompt: '在原图该区域叠加老师红线：延长前臂轮廓，统一腕部与手掌方向。',
     practice: '练习“肩肘腕三点速写”10 组，每组 30 秒，只画结构线。',
@@ -83,29 +64,9 @@ const mockIssues: CritiqueIssue[] = [
     bbox: { x: 34, y: 12, width: 26, height: 24 },
     editRegion: { x: 28, y: 8, width: 34, height: 30 },
     annotations: [
-      {
-        id: 'ann-4',
-        issueId: 'issue-2',
-        type: 'box',
-        color: 'red',
-        rect: { x: 34, y: 12, width: 26, height: 24 },
-        label: '连接断层',
-      },
-      {
-        id: 'ann-5',
-        issueId: 'issue-2',
-        type: 'line',
-        color: 'green',
-        points: [360, 120, 440, 180],
-      },
-      {
-        id: 'ann-6',
-        issueId: 'issue-2',
-        type: 'text',
-        color: 'green',
-        points: [445, 180],
-        label: '补颈柱体',
-      },
+      { id: 'ann-4', issueId: 'issue-2', type: 'box', color: 'red', rect: { x: 34, y: 12, width: 26, height: 24 }, label: '连接断层' },
+      { id: 'ann-5', issueId: 'issue-2', type: 'line', color: 'green', points: [360, 120, 440, 180] },
+      { id: 'ann-6', issueId: 'issue-2', type: 'text', color: 'green', points: [445, 180], label: '补颈柱体' },
     ],
     cropPrompt: '在颈肩区域叠加辅助结构线，补齐头颈肩连接体块。',
     practice: '临摹 5 张头像，额外加画颈部圆柱和锁骨线。',
@@ -122,16 +83,7 @@ const mockIssues: CritiqueIssue[] = [
     fix_steps: ['拉一条画幅中线', '把肩线与骨盆线向左微移', '在左侧补轻量级形体呼应'],
     bbox: { x: 18, y: 16, width: 66, height: 70 },
     editRegion: { x: 8, y: 8, width: 80, height: 84 },
-    annotations: [
-      {
-        id: 'ann-7',
-        issueId: 'issue-3',
-        type: 'line',
-        color: 'blue',
-        points: [430, 20, 430, 540],
-        label: '画幅中线',
-      },
-    ],
+    annotations: [{ id: 'ann-7', issueId: 'issue-3', type: 'line', color: 'blue', points: [430, 20, 430, 540], label: '画幅中线' }],
     cropPrompt: '叠加构图中线和视觉重心线，示意主体微移方向。',
     practice: '做 6 张“同一人物不同留白”小构图，比较稳定感。',
   },
@@ -163,9 +115,7 @@ const makeInitialTask = (imageUrl: string): ReviewTask => ({
     mock: true,
     warning: '当前为红线示范，未调用真实修图模型。',
   },
-  logs: [
-    { time: new Date().toISOString(), status: 'analyzing', message: '已提炼 3 个主问题并生成标注计划' },
-  ],
+  logs: [{ time: new Date().toISOString(), status: 'analyzing', message: '已提炼 3 个主问题并生成标注计划' }],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 })
@@ -185,9 +135,13 @@ function App() {
   const [task, setTask] = useState<ReviewTask | null>(null)
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null)
   const [showDebug, setShowDebug] = useState(true)
+  const [editMode, setEditMode] = useState<EditMode>('auto_protect')
+  const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('medium')
+  const [size, setSize] = useState<'1024x1024' | '1024x1536' | '1536x1024'>('1024x1024')
 
   const activeIssue = task?.problems.find((item) => item.id === (activeIssueId ?? task.selectedProblemIds[0]))
   const currentDemo = task?.localDemos.find((item) => item.issueId === activeIssue?.id)
+  const editRequest = task && activeIssue ? createEditRequest(task.imageUrl, activeIssue, { editMode, quality, size }) : null
 
   const onUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -206,21 +160,32 @@ function App() {
       selectedProblemIds: [activeIssue.id],
       localDemos: [...task.localDemos.filter((item) => item.issueId !== activeIssue.id), demo],
       updatedAt: new Date().toISOString(),
-      logs: [
-        ...task.logs,
-        {
-          time: new Date().toISOString(),
-          status: 'generating_local_demo',
-          message: `已生成 ${activeIssue.title} 的局部红线示范`,
-        },
-      ],
+      logs: [...task.logs, { time: new Date().toISOString(), status: 'generating_local_demo', message: `已生成 ${activeIssue.title} 的局部红线示范` }],
     })
   }
 
-  const stageAnnotations: Annotation[] = useMemo(() => {
-    if (!activeIssue) return []
-    return activeIssue.annotations
-  }, [activeIssue])
+  const mockRealEdit = () => {
+    if (!task || !activeIssue) return
+    const demo: LocalDemo = {
+      id: `real-${activeIssue.id}-${task.localDemos.length + 1}`,
+      issueId: activeIssue.id,
+      status: 'real_inpaint',
+      beforeCropLabel: '原局部',
+      afterLabel: '真实修图结果（占位）',
+      explanation: '这里应由后端调用 GPT-Image-2 image edit 返回真实局部结果。当前仅用于串联教学闭环。',
+      imageApiCalled: false,
+      prompt: editRequest?.prompt ?? activeIssue.cropPrompt,
+    }
+    setTask({
+      ...task,
+      status: 'done',
+      localDemos: [...task.localDemos.filter((item) => item.issueId !== activeIssue.id), demo],
+      logs: [...task.logs, { time: new Date().toISOString(), status: 'done', message: '用户触发真实修图入口（当前环境为占位）' }],
+      updatedAt: new Date().toISOString(),
+    })
+  }
+
+  const stageAnnotations: Annotation[] = activeIssue ? activeIssue.annotations : []
 
   return (
     <main className="page">
@@ -243,35 +208,17 @@ function App() {
               <Stage width={stageWidth} height={stageHeight} className="stage">
                 <Layer>
                   <Rect x={0} y={0} width={stageWidth} height={stageHeight} fill="#f8fafc" />
-                  {task.imageUrl ? (
-                    <Text text="已加载学生作品（示意）" x={16} y={16} fontSize={16} fill="#475569" />
-                  ) : null}
+                  <Text text="画布示意：后端返回原图时可直接替换为图像层" x={16} y={16} fontSize={16} fill="#475569" />
                 </Layer>
                 <Layer>
                   {stageAnnotations.map((item) => {
                     if (item.type === 'box' && item.rect) {
                       const rect = toPxRect(item.rect)
-                      return (
-                        <Rect
-                          key={item.id}
-                          x={rect.x}
-                          y={rect.y}
-                          width={rect.width}
-                          height={rect.height}
-                          stroke={item.color ?? 'red'}
-                          strokeWidth={3}
-                        />
-                      )
+                      return <Rect key={item.id} x={rect.x} y={rect.y} width={rect.width} height={rect.height} stroke={item.color ?? 'red'} strokeWidth={3} />
                     }
-                    if (item.type === 'line' && item.points) {
-                      return <Line key={item.id} points={item.points} stroke={item.color ?? 'red'} strokeWidth={3} />
-                    }
-                    if (item.type === 'arrow' && item.points) {
-                      return <Arrow key={item.id} points={item.points} stroke={item.color ?? 'red'} fill={item.color ?? 'red'} strokeWidth={3} />
-                    }
-                    if (item.type === 'text' && item.points && item.label) {
-                      return <Text key={item.id} x={item.points[0]} y={item.points[1]} text={item.label} fill={item.color ?? '#111827'} fontSize={20} />
-                    }
+                    if (item.type === 'line' && item.points) return <Line key={item.id} points={item.points} stroke={item.color ?? 'red'} strokeWidth={3} />
+                    if (item.type === 'arrow' && item.points) return <Arrow key={item.id} points={item.points} stroke={item.color ?? 'red'} fill={item.color ?? 'red'} strokeWidth={3} />
+                    if (item.type === 'text' && item.points && item.label) return <Text key={item.id} x={item.points[0]} y={item.points[1]} text={item.label} fill={item.color ?? '#111827'} fontSize={20} />
                     return null
                   })}
                 </Layer>
@@ -281,23 +228,13 @@ function App() {
             <aside className="side">
               <h2>3 个主问题</h2>
               {task.problems.map((issue) => (
-                <button
-                  key={issue.id}
-                  className={activeIssue?.id === issue.id ? 'issue active' : 'issue'}
-                  onClick={() => setActiveIssueId(issue.id)}
-                >
+                <button key={issue.id} className={activeIssue?.id === issue.id ? 'issue active' : 'issue'} onClick={() => setActiveIssueId(issue.id)}>
                   <div className="issueTitle">{issue.title}</div>
-                  <div className="meta">
-                    <span style={{ color: severityColor[issue.severity] }}>严重度：{issue.severity}</span>
-                    <span>{issue.category}</span>
-                  </div>
+                  <div className="meta"><span style={{ color: severityColor[issue.severity] }}>严重度：{issue.severity}</span><span>{issue.category}</span></div>
                   <p>{issue.student_friendly_reason}</p>
                 </button>
               ))}
-
-              <button className="primary" onClick={generateTeacherOverlay}>
-                生成局部红线示范
-              </button>
+              <button className="primary" onClick={generateTeacherOverlay}>生成局部红线示范</button>
               <p className="warning">当前为红线示范，未调用真实修图模型。</p>
             </aside>
           </section>
@@ -306,46 +243,51 @@ function App() {
             <section className="teaching">
               <h2>教学区（随选中问题更新）</h2>
               <div className="grid">
-                <article>
-                  <h3>为什么重要</h3>
-                  <p>{activeIssue.visual_symptom}</p>
-                  <p>{activeIssue.art_principle}</p>
-                </article>
-                <article>
-                  <h3>怎么改（3 步内）</h3>
-                  <ol>
-                    {activeIssue.fix_steps.map((step) => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ol>
-                </article>
-                <article>
-                  <h3>练习任务</h3>
-                  <p>{activeIssue.practice}</p>
-                </article>
+                <article><h3>为什么重要</h3><p>{activeIssue.visual_symptom}</p><p>{activeIssue.art_principle}</p></article>
+                <article><h3>怎么改（3 步内）</h3><ol>{activeIssue.fix_steps.map((step) => <li key={step}>{step}</li>)}</ol></article>
+                <article><h3>练习任务</h3><p>{activeIssue.practice}</p></article>
               </div>
             </section>
           ) : null}
 
           <section className="compare">
             <h2>局部对比（editRegion）</h2>
-            {activeIssue ? (
-              <p>
-                当前 editRegion：x {activeIssue.editRegion.x}% / y {activeIssue.editRegion.y}% / w {activeIssue.editRegion.width}% / h {activeIssue.editRegion.height}%
-              </p>
-            ) : null}
-            <div className="sliderStub">
-              <div>左：原局部</div>
-              <div>右：老师红线示范</div>
-            </div>
+            {activeIssue ? <p>当前 editRegion：x {activeIssue.editRegion.x}% / y {activeIssue.editRegion.y}% / w {activeIssue.editRegion.width}% / h {activeIssue.editRegion.height}%</p> : null}
+            <div className="sliderStub"><div>左：原局部</div><div>右：老师红线示范 / 修图结果</div></div>
             {currentDemo ? <p>{currentDemo.explanation}</p> : <p>请先点击“生成局部红线示范”。</p>}
           </section>
 
+          <section className="editPanel">
+            <h2>真实修图调用准备（GPT-Image-2）</h2>
+            <div className="controls">
+              <label>编辑模式
+                <select value={editMode} onChange={(e) => setEditMode(e.target.value as EditMode)}>
+                  <option value="auto_protect">自动保护其余区域（推荐）</option>
+                  <option value="mask_precise">Mask 精准修改</option>
+                </select>
+              </label>
+              <label>质量
+                <select value={quality} onChange={(e) => setQuality(e.target.value as 'low' | 'medium' | 'high')}>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                </select>
+              </label>
+              <label>尺寸
+                <select value={size} onChange={(e) => setSize(e.target.value as '1024x1024' | '1024x1536' | '1536x1024')}>
+                  <option value="1024x1024">1024x1024</option>
+                  <option value="1024x1536">1024x1536</option>
+                  <option value="1536x1024">1536x1024</option>
+                </select>
+              </label>
+            </div>
+            <p>预估单次成本：${estimateEditCost(size, quality).toFixed(2)}（仅预算参考，实际以官方账单为准）。</p>
+            {editRequest ? <pre>{JSON.stringify(editRequest, null, 2)}</pre> : null}
+            <button className="primary" onClick={mockRealEdit}>生成修图结果（占位）</button>
+          </section>
+
           <section className="debug">
-            <h2>
-              Debug 面板
-              <button onClick={() => setShowDebug((prev) => !prev)}>{showDebug ? '收起' : '展开'}</button>
-            </h2>
+            <h2>Debug 面板<button onClick={() => setShowDebug((prev) => !prev)}>{showDebug ? '收起' : '展开'}</button></h2>
             {showDebug ? <pre>{JSON.stringify(task, null, 2)}</pre> : null}
           </section>
         </>

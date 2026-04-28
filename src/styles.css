@@ -92,6 +92,33 @@ body {
   text-align: center;
 }
 
+
+.editPanel {
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px;
+}
+
 .debug h2 {
   display: flex;
   justify-content: space-between;
@@ -108,7 +135,8 @@ pre {
 
 @media (max-width: 980px) {
   .workspace,
-  .grid {
+  .grid,
+  .controls {
     grid-template-columns: 1fr;
   }
 }
