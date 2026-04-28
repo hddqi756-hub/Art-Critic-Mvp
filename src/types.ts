@@ -7,6 +7,7 @@ export type RectPercent = {
 
 export type Annotation = {
   id: string
+  issueId: string
   type: 'box' | 'arrow' | 'line' | 'paint' | 'text'
   color?: string
   label?: string
