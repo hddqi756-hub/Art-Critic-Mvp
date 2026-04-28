@@ -24,34 +24,14 @@ export type SubjectType = '角色' | '场景' | '静物' | '综合'
 
 export type GeneratedAsset = {
   id: string
-  type: 'local_overlay' | 'global_overlay' | 'real_edit' | 'knowledge_card' | 'practice' | 'practice_answer' | 'report'
-  title: string
-  url: string
-  createdAt: string
-  downloadable: boolean
-}
-
-export type KnowledgeCardPlan = {
-  title: string
-  keyConcept: string
-  commonMistake: string
-  observationMethod: string
-  miniExercise: string
-}
-
-export type PracticePlan = {
-  title: string
-  focus: string
-  steps: string[]
-}
-
-export type ArtworkStage = '草稿' | '线稿' | '平涂' | '二分' | '半成品' | '完成图'
-export type StyleTarget = '日系赛璐璐' | '平涂' | '半厚涂' | '厚涂' | '游戏美宣' | 'Q版' | '写实'
-export type SubjectType = '角色' | '场景' | '静物' | '综合'
-
-export type GeneratedAsset = {
-  id: string
-  type: 'local_overlay' | 'global_overlay' | 'real_edit' | 'knowledge_card' | 'practice' | 'practice_answer' | 'report'
+  type:
+    | 'local_overlay'
+    | 'global_overlay'
+    | 'real_edit'
+    | 'knowledge_card'
+    | 'practice'
+    | 'practice_answer'
+    | 'report'
   title: string
   url: string
   createdAt: string
@@ -75,7 +55,15 @@ export type PracticePlan = {
 export type CritiqueIssue = {
   id: string
   title: string
-  dimension: '造型与结构' | '线条与轮廓' | '明暗与光影' | '色彩' | '构图与画面设计' | '角色设计与美宣感' | '上色完成度' | 'AI图像编辑专项'
+  dimension:
+    | '造型与结构'
+    | '线条与轮廓'
+    | '明暗与光影'
+    | '色彩'
+    | '构图与画面设计'
+    | '角色设计与美宣感'
+    | '上色完成度'
+    | 'AI图像编辑专项'
   subDimension: string
   severity: Severity
   bodyPart: string
@@ -128,7 +116,10 @@ export type LocalDemo = {
   id: string
   issueId: string
   mode: TeacherEditMode
-  status: 'ready' | 'needs_retry'
+  status: 'ready' | 'needs_retry' | 'failed'
+  beforeCropUrl?: string
+  teacherOverlayUrl?: string
+  editedCropUrl?: string
   beforeCropLabel: string
   afterLabel: string
   explanation: string
@@ -142,52 +133,14 @@ export type GlobalDemo = {
   id: string
   problemIds: string[]
   mode: TeacherEditMode
-  status: 'ready' | 'needs_retry'
+  status: 'ready' | 'needs_retry' | 'failed'
+  beforeUrl?: string
   globalOverlayUrl?: string
   editedFullUrl?: string
   explanation: string
   prompt: string
   imageApiCalled: boolean
   qa?: EditQualityCheck
-}
-
-export type KnowledgeCard = {
-  id: string
-  issueId: string
-  mode: 'text' | 'image'
-  title: string
-  concept: string
-  misconception: string
-  observe: string
-  exercise: string
-  imageUrl?: string
-}
-
-export type PracticeSet = {
-  id: string
-  issueId: string
-  title: string
-  steps: string[]
-  trainingImageUrl?: string
-  answerImageUrl?: string
-}
-
-export type StudentMemory = {
-  recurringIssues: string[]
-  learnedConcepts: string[]
-  generatedAssets: GeneratedAsset[]
-  teacherSummary: string
-}
-
-export type GlobalDemo = {
-  id: string
-  problemIds: string[]
-  globalOverlayUrl?: string
-  editedFullUrl?: string
-  explanation: string
-  prompt: string
-  imageApiCalled: boolean
-  mode: 'teacher_overlay' | 'real_edit'
 }
 
 export type KnowledgeCard = {
