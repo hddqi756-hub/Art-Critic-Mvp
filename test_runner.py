@@ -3,12 +3,14 @@ import json
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 import requests
 
 
 BASE_URL = os.getenv("BASE_URL", "http://localhost:4000")
 REPORT_PATH = Path("logs/test_report.json")
+JsonDict = dict[str, Any]
 
 
 def png_data_url(kind):
@@ -67,14 +69,14 @@ def test_analyze():
         data = safe_json(response)
         if response.status_code >= 400:
             return fail("analyze", extract_error(data), repair=repair_hint(data))
-        task_id = data.get("data", {}).get("task_id")
+        task_id = as_dict(data.get("data")).get("task_id")
         if not task_id:
             return fail("analyze", "missing task_id", response=data)
         polled = poll_task(task_id)
         if polled.get("status") == "fail":
             return polled
-        task = polled["task"]
-        issues = task.get("problems") or task.get("report", {}).get("issues") or []
+        task = as_dict(polled.get("task"))
+        issues = as_dict_list(task.get("problems")) or as_dict_list(as_dict(task.get("report")).get("issues"))
         if not issues:
             return fail("analyze", "empty issues", task_status=task.get("status"), repair="AI returned no critique issues; inspect logs/app.log and retry.")
         has_bbox = any(item.get("bbox") for item in issues)
@@ -91,7 +93,7 @@ def test_job_create():
         data = safe_json(response)
         if response.status_code >= 400:
             return fail("job_create", extract_error(data), repair=repair_hint(data))
-        job_id = data.get("data", {}).get("job_id")
+        job_id = as_dict(data.get("data")).get("job_id")
         if not job_id:
             return fail("job_create", "missing job_id", response=data)
         readback = get_json(f"/job/{job_id}")
@@ -115,14 +117,15 @@ def test_inpaint():
             data = safe_json(response)
             if response.status_code >= 400:
                 return fail("inpaint", extract_error(data), attempts=attempt, repair=repair_hint(data))
-            edited = data.get("data", {}).get("edited_image")
+            response_data = as_dict(data.get("data"))
+            edited = response_data.get("edited_image")
             if edited:
                 return success(
                     "inpaint",
                     attempts=attempt,
                     edited_image=edited,
-                    api_called=bool(data.get("data", {}).get("api_called")),
-                    token_usage=data.get("data", {}).get("token_usage"),
+                    api_called=bool(response_data.get("api_called")),
+                    token_usage=response_data.get("token_usage"),
                 )
             last_error = "no edited_image returned"
             time.sleep(attempt)
@@ -139,11 +142,12 @@ def poll_task(task_id, timeout=120):
         data = safe_json(response)
         if response.status_code >= 400:
             return fail("analyze_poll", extract_error(data), task_id=task_id, repair=repair_hint(data))
-        task = data.get("data", {}).get("task", {})
+        task = as_dict(as_dict(data.get("data")).get("task"))
         if task.get("status") in {"waiting_selection", "partial_done", "done"}:
             return {"status": "pass", "task": task}
         if task.get("status") == "failed":
-            return fail("analyze_poll", task.get("error", {}).get("message", "task failed"), task_id=task_id, repair=repair_hint(task))
+            task_error = as_dict(task.get("error"))
+            return fail("analyze_poll", task_error.get("message", "task failed"), task_id=task_id, repair=repair_hint(task))
         time.sleep(2)
     return fail("analyze_poll", "timeout waiting for task", task_id=task_id)
 
@@ -156,7 +160,19 @@ def safe_json(response):
 
 
 def extract_error(data):
-    return data.get("error", {}).get("message") or data.get("raw") or data
+    if not isinstance(data, dict):
+        return data
+    return as_dict(data.get("error")).get("message") or data.get("raw") or data
+
+
+def as_dict(value: Any) -> JsonDict:
+    return value if isinstance(value, dict) else {}
+
+
+def as_dict_list(value: Any) -> list[JsonDict]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
 
 
 def repair_hint(data):

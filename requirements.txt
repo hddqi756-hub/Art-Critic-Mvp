@@ -1,0 +1,13 @@
+diffusers>=0.27.2
+transformers>=4.40.0
+accelerate>=0.30.0
+safetensors
+xformers
+opencv-python
+Pillow
+numpy
+fastapi
+uvicorn
+pydantic
+typer
+scikit-image

@@ -12,12 +12,15 @@ node_modules
 dist
 dist-ssr
 *.local
+__pycache__/
+*.py[cod]
 .env
 server/.env
 server/data/*
 !server/data/.gitkeep
 server/uploads/*
 !server/uploads/.gitkeep
+outputs/
 
 # Editor directories and files
 .vscode/*
