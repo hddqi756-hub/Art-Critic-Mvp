@@ -9,5 +9,4 @@ numpy
 fastapi
 uvicorn
 pydantic
-typer
-scikit-image
+tqdm

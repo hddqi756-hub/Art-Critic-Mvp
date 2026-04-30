@@ -42,14 +42,26 @@ Ensure-Dependencies $server
 Write-Step "Starting AI Art Tutor in this single window"
 Write-Host "Frontend:   http://localhost:5173" -ForegroundColor Green
 Write-Host "API health: http://localhost:4000/api/health" -ForegroundColor Green
+
+$serverEnvContent = Get-Content $serverEnv -Raw -ErrorAction SilentlyContinue
+$usePythonRedraw = $false
+if ($serverEnvContent -match 'IMAGE_EDIT_PROVIDER\s*=\s*ai_redraw') {
+  $usePythonRedraw = $true
+  Write-Host "Python AI:  http://localhost:8000/health" -ForegroundColor Yellow
+  Write-Host "AI Redraw mode: Local Stable Diffusion (Diffusers)" -ForegroundColor Yellow
+}
 Write-Host ""
 Write-Host "The browser will open automatically. Logs are prefixed with API and WEB." -ForegroundColor Yellow
-Write-Host "Press Ctrl+C to stop both." -ForegroundColor Yellow
+Write-Host "Press Ctrl+C to stop all services." -ForegroundColor Yellow
 Write-Host ""
 
 Push-Location $root
 try {
-  npm run dev:all
+  if ($usePythonRedraw) {
+    npm run dev:all-redraw
+  } else {
+    npm run dev:all
+  }
 } finally {
   Pop-Location
 }

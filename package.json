@@ -8,6 +8,8 @@
     "dev:api": "npm run dev --prefix server",
     "dev:web": "vite --open",
     "dev:all": "concurrently -n API,WEB -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:python": "cd ai_redraw && uvicorn ai_redraw.server:app --host 0.0.0.0 --port 8000 --reload",
+    "dev:all-redraw": "concurrently -n API,PY,WEB -c cyan,green,magenta \"npm run dev:api\" \"npm run dev:python\" \"npm run dev:web\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
