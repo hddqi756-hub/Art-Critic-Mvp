@@ -1,5 +1,7 @@
 # AI Art Tutor MVP
 
+当前版本：`v0.6.0`
+
 当前版本：`v1.0.2`
 
 React + TypeScript 前端，Node.js + Express 后端，用于 AI 美术作品批改和示范图生成。

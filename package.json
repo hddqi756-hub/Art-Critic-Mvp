@@ -1,9 +1,11 @@
 {
   "name": "ai-critic-mvp",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.6.0",
   "type": "module",
   "scripts": {
+    "start": "npm run dev:all",
+    "start:redraw": "npm run dev:all-redraw",
     "dev": "vite",
     "dev:api": "npm run dev --prefix server",
     "dev:web": "vite --open",
@@ -11,6 +13,7 @@
     "dev:python": "cd ai_redraw && uvicorn ai_redraw.server:app --host 0.0.0.0 --port 8000 --reload",
     "dev:all-redraw": "concurrently -n API,PY,WEB -c cyan,green,magenta \"npm run dev:api\" \"npm run dev:python\" \"npm run dev:web\"",
     "build": "tsc -b && vite build",
+    "check": "npm run lint && npm run build && npm run build --prefix server",
     "lint": "eslint .",
     "preview": "vite preview"
   },
