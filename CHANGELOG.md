@@ -5,6 +5,7 @@
 ## v0.7.0 - 2026-05-02
 
 ### 新增
+
 - 新增 `ImagePreview` 通用图片预览组件，支持鼠标滚轮缩放、拖拽平移、全屏查看和下载。
 - 批改结果页分析板块改为可折叠面板（`CollapsiblePanel`），支持一键展开/收起。
 - 每个分析面板底部新增"看不懂？追问 AI 老师"快捷按钮。
@@ -13,6 +14,7 @@
 - 知识卡重构为"图像讲解 + 文字补充"双区结构。
 
 ### 修复
+
 - 修复局部修改、知识卡、作业卡 API 错误响应格式，从通用错误处理器改为结构化错误响应。
 - 修复页面切换时 `window.location.reload()` 中断其他页面进程的问题。
 - 修复 `ImagePreview` 未接收 `children` 导致页面白屏的问题。
@@ -20,6 +22,7 @@
 - 修复选择 `ai_redraw` 本地改图后端时仍误要求 OpenAI API Key 的校验问题。
 
 ### 本轮补丁
+
 - 结果页所有图像动作增加确认交互：局部改图、全局改图、知识卡、作业卡均需小画家点击确认后才调用图像模型。
 - AI 老师聊天线程按任务保存到 `localStorage`，切换页面后可继续追问，不影响其他页面任务轮询。
 - 全局修改轮询覆盖 `generating_global_demo` 状态，切换页面后仍可恢复生成进度。
@@ -39,6 +42,21 @@
 - 结果页“全图问题总结”会展示全图审计维度，不再只复述已分析问题。
 - 局部修改链路强化为单问题改图契约：每次只处理一个问题、一个 mask，并明确禁止顺手修改其他问题。
 - 局部改图状态面板新增“单问题计划”信息，展示保护项和禁止项，方便排查前端已调用但显示失败的情况。
+- 图片预览交互调整为“页面内只展示全图，点开放大后才缩放/拖拽”，避免未点开图片时滚轮误缩放。
+- 全局前后对比图改为自适应完整显示，页面内仅保留滑块对比和放大入口。
+- 问题框选覆盖层按真实图片显示区域对齐，减少框选落到空白边距或 UI 区域的情况。
+- 视觉诊断提示词增强，禁止在已有图片输入时输出“缺少作品图像/无法观察”等伪问题，并要求每个问题包含原因和修法。
+- AI 老师界面辅助区默认折叠，聊天区加宽，避免记忆/历史/原图解析挤压主对话。
+- 改图对比页为每个局部问题新增“为什么不好 / 怎么改 / 应该怎么做”三段讲解。
+- 补齐工程闭环：新增 `docs/API_CONTRACT.md`、`scripts/smoke-test.mjs`、`scripts/check-ai-redraw.cjs`，并将 `npm run check` 串联 smoke/web/server。
+- 新增远程旧版 `teacherApi` 兼容层 `src/services/teacherApi.ts`，支持 `VITE_API_BASE_URL`、30 秒超时和清晰错误。
+- 后端补充 mock fixtures 和 `editQualityService`，`inpaint-local` / `inpaint-global` 返回 `qualityCheck`。
+- 新增 `/api/generate-global-overlay` 兼容接口，`generate-selected` 兼容单个 `problem_id`。
+- UI 增加 Mock API / 真实 AI / 离线演示模式徽章。
+- README 更新为 mock-first MVP 后端说明，接口主契约统一指向 `docs/API_CONTRACT.md`。
+- 修复“左侧能预览但右侧提示缺少作品图像”的数据链路：上传任务写入 `originalImageUrl/uploadedImageUrl/artworkImageUrl/imagePresent`，前端结果页和 AI 老师统一从同一 artwork source 取图。
+- `/api/analyze` 响应显式返回 `imagePresent: true` 和原图 URL；`inpaint-local/global` 与全局 overlay 可通过 `task_id` 找回原图。
+- 开发模式下结果页新增 Image Chain 调试角标，显示 `imagePresent`、原图字段和模式。
 
 ## [v1.0.4] - 2026-04-28
 
